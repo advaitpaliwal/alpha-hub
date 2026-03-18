@@ -1,0 +1,32 @@
+{
+  "name": "@alpha-hub/cli",
+  "version": "0.1.0",
+  "description": "CLI for Alpha Hub - search papers and share community annotations",
+  "type": "module",
+  "bin": {
+    "alpha": "./bin/alpha",
+    "alpha-mcp": "./bin/alpha-mcp"
+  },
+  "files": [
+    "bin/",
+    "src/"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "research",
+    "papers",
+    "annotations",
+    "alphaxiv",
+    "mcp",
+    "cli"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "chalk": "^5.3.0",
+    "commander": "^12.0.0",
+    "zod": "^3.23.0"
+  }
+}
