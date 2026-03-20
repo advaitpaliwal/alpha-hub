@@ -8,7 +8,7 @@ Research agents hallucinate paper details and forget what they learn in a sessio
 ## Quick Start
 
 ```bash
-npm install -g @alpha-hub/cli
+npm install -g @companion-ai/alpha-hub
 alpha login                        # sign in with alphaXiv
 alpha search "attention mechanism" # search papers
 alpha get 1706.03762               # fetch paper report
@@ -47,6 +47,7 @@ alpha ask 1706.03762 "What datasets were used for evaluation?"
 | `alpha search <query>` | Search papers (semantic, keyword, or agentic) |
 | `alpha get <id\|url>` | Fetch paper report + local annotation |
 | `alpha ask <id\|url> <question>` | Ask a question about a paper |
+| `alpha code <github-url> [path]` | Read files from a paper repository |
 | `alpha annotate <id> <note>` | Attach a note to a paper |
 | `alpha annotate <id> --clear` | Remove a note |
 | `alpha annotate --list` | List all notes |
@@ -75,11 +76,13 @@ Alpha Hub is designed for a loop where agents get better over time.
 
 ### Semantic Search
 
-Three search modes — semantic (embedding similarity), keyword (exact terms), and agentic (multi-turn retrieval) — so agents find the right papers regardless of how they phrase the query.
+Three search modes — semantic (embedding similarity), keyword (exact terms), and agentic (multi-turn retrieval) — so agents find the right papers regardless of how they phrase the query. `--mode all` runs all three in parallel for maximum recall.
 
 ```bash
 alpha search "methods for reducing hallucination in LLMs"  # semantic
 alpha search "LoRA" --mode keyword                          # keyword
+alpha search "retrieval-augmented generation for QA" --mode agentic
+alpha search "alignment of vision language models" --mode all
 ```
 
 ### Paper Q&A
@@ -93,6 +96,15 @@ alpha ask 2106.09685 "What is the rank used for the low-rank matrices?"
 ### Annotations
 
 Local notes that agents attach to papers — they persist across sessions and appear automatically on future fetches. See the annotation as a gap the agent discovered and recorded so it doesn't repeat the same mistake.
+
+### Repository Reading
+
+Read files directly from a paper's GitHub repository when the implementation matters.
+
+```bash
+alpha code https://github.com/openai/gpt-2 /
+alpha code https://github.com/openai/gpt-2 src/model.py
+```
 
 ## License
 

@@ -1,13 +1,38 @@
 {
-  "name": "@alpha-hub/cli",
-  "version": "0.1.0",
-  "description": "CLI for Alpha Hub - search papers and share community annotations",
+  "name": "@companion-ai/alpha-hub",
+  "version": "0.1.2",
+  "description": "Unofficial alphaXiv-powered CLI and library for research agents",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/getcompanion-ai/alpha-hub.git",
+    "directory": "cli"
+  },
+  "homepage": "https://github.com/getcompanion-ai/alpha-hub#readme",
+  "bugs": {
+    "url": "https://github.com/getcompanion-ai/alpha-hub/issues"
+  },
+  "exports": {
+    ".": "./src/index.js",
+    "./lib": {
+      "types": "./src/lib/index.d.ts",
+      "default": "./src/lib/index.js"
+    },
+    "./lib/auth": {
+      "types": "./src/lib/auth.d.ts",
+      "default": "./src/lib/auth.js"
+    },
+    "./lib/alphaxiv": "./src/lib/alphaxiv.js",
+    "./lib/annotations": "./src/lib/annotations.js",
+    "./lib/papers": "./src/lib/papers.js"
+  },
   "bin": {
     "alpha": "./bin/alpha",
     "alpha-mcp": "./bin/alpha-mcp"
   },
   "files": [
+    "README.md",
+    "LICENSE",
     "bin/",
     "src/"
   ],
