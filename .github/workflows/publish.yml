@@ -1,0 +1,33 @@
+name: Publish
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - id: check
+        run: |
+          CURRENT=$(npm view @companion-ai/alpha-hub version 2>/dev/null || echo "0.0.0")
+          LOCAL=$(node -p "require('./cli/package.json').version")
+          echo "current=$CURRENT local=$LOCAL"
+          if [ "$CURRENT" != "$LOCAL" ]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.check.outputs.publish == 'true'
+        run: npm publish --access public
+        working-directory: cli
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
