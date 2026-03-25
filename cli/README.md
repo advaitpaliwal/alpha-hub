@@ -12,6 +12,7 @@ npm install -g @companion-ai/alpha-hub
 
 ```bash
 alpha login
+alpha status
 alpha search "attention mechanism"
 alpha get 1706.03762
 alpha ask 1706.03762 "What datasets were used for evaluation?"

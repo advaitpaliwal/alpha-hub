@@ -45,9 +45,21 @@ function parsePublishedAt(fragment) {
   return match ? match[1].trim() : null;
 }
 
-function parsePaperListText(text) {
+function cleanSearchField(value) {
+  if (typeof value !== 'string') return null;
+  const normalized = value
+    .replace(/\r\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/\s*\n\s*/g, ' ')
+    .replace(/[ \t]+/g, ' ')
+    .trim();
+  return normalized || null;
+}
+
+export function parsePaperSearchResults(text, options = {}) {
+  const includeRaw = options.includeRaw === true;
   if (typeof text !== 'string') {
-    return { raw: text, results: [] };
+    return { results: [] };
   }
 
   const blocks = text
@@ -69,28 +81,28 @@ function parsePaperListText(text) {
 
     return {
       rank: index + 1,
-      title: headerMatch ? headerMatch[1].trim() : header,
+      title: cleanSearchField(headerMatch ? headerMatch[1] : header),
       visits: headerMatch ? parseMetricNumber(headerMatch[2], 'Visits') : null,
       likes: headerMatch ? parseMetricNumber(headerMatch[2], 'Likes') : null,
       publishedAt: headerMatch ? parsePublishedAt(headerMatch[2]) : null,
-      organizations: fieldValue('- Organizations:'),
-      authors: fieldValue('- Authors:'),
-      abstract: fieldValue('- Abstract:'),
-      arxivId,
+      organizations: cleanSearchField(fieldValue('- Organizations:')),
+      authors: cleanSearchField(fieldValue('- Authors:')),
+      abstract: cleanSearchField(fieldValue('- Abstract:')),
+      arxivId: cleanSearchField(arxivId),
       arxivUrl: arxivId ? `https://arxiv.org/abs/${arxivId}` : null,
       alphaXivUrl: arxivId ? `https://www.alphaxiv.org/overview/${arxivId}` : null,
-      raw: block,
+      ...(includeRaw ? { raw: block } : {}),
     };
   });
 
-  return { raw: text, results };
+  return includeRaw ? { raw: text, results } : { results };
 }
 
-function normalizeSearchPayload(query, mode, payload) {
+function normalizeSearchPayload(query, mode, payload, options = {}) {
   if (mode === 'all' || mode === 'both') {
     const normalized = {};
     for (const [key, value] of Object.entries(payload)) {
-      normalized[key] = parsePaperListText(value);
+      normalized[key] = parsePaperSearchResults(value, options);
     }
     return {
       query,
@@ -99,7 +111,7 @@ function normalizeSearchPayload(query, mode, payload) {
     };
   }
 
-  const parsed = parsePaperListText(payload);
+  const parsed = parsePaperSearchResults(payload, options);
   return {
     query,
     mode,
@@ -107,18 +119,18 @@ function normalizeSearchPayload(query, mode, payload) {
   };
 }
 
-export async function searchPapers(query, mode = 'semantic') {
-  if (mode === 'keyword') return normalizeSearchPayload(query, mode, await searchByKeyword(query));
-  if (mode === 'agentic') return normalizeSearchPayload(query, mode, await agenticSearch(query));
+export async function searchPapers(query, mode = 'semantic', options = {}) {
+  if (mode === 'keyword') return normalizeSearchPayload(query, mode, await searchByKeyword(query), options);
+  if (mode === 'agentic') return normalizeSearchPayload(query, mode, await agenticSearch(query), options);
   if (mode === 'both') {
     const [semantic, keyword] = await Promise.all([
       searchByEmbedding(query),
       searchByKeyword(query),
     ]);
-    return normalizeSearchPayload(query, mode, { semantic, keyword });
+    return normalizeSearchPayload(query, mode, { semantic, keyword }, options);
   }
-  if (mode === 'all') return normalizeSearchPayload(query, mode, await searchAll(query));
-  return normalizeSearchPayload(query, mode, await searchByEmbedding(query));
+  if (mode === 'all') return normalizeSearchPayload(query, mode, await searchAll(query), options);
+  return normalizeSearchPayload(query, mode, await searchByEmbedding(query), options);
 }
 
 export async function getPaper(identifier, options = {}) {

@@ -13,9 +13,18 @@ export declare function searchByEmbedding(query: string): Promise<unknown>;
 export declare function searchByKeyword(query: string): Promise<unknown>;
 export declare function agenticSearch(query: string): Promise<unknown>;
 
+export declare function parsePaperSearchResults(
+	text: unknown,
+	options?: { includeRaw?: boolean },
+): {
+	results: unknown[];
+	raw?: unknown;
+};
+
 export declare function searchPapers(
 	query: string,
 	mode?: "semantic" | "keyword" | "both" | "agentic" | "all" | string,
+	options?: { includeRaw?: boolean },
 ): Promise<unknown>;
 
 export declare function getPaper(

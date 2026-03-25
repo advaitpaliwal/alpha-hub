@@ -81,10 +81,56 @@ function generatePKCE() {
 }
 
 function openBrowser(url) {
-  const plat = platform();
-  if (plat === 'darwin') execSync(`open "${url}"`);
-  else if (plat === 'linux') execSync(`xdg-open "${url}"`);
-  else if (plat === 'win32') execSync(`start "${url}"`);
+  try {
+    const plat = platform();
+    if (plat === 'darwin') execSync(`open "${url}"`);
+    else if (plat === 'linux') execSync(`xdg-open "${url}"`);
+    else if (plat === 'win32') execSync(`start "" "${url}"`);
+  } catch {}
+}
+
+const SUCCESS_HTML = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>alphaXiv</title>
+<style>
+  body { font-family: system-ui, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background: #0a0a0a; color: #e5e5e5; }
+  .card { text-align: center; padding: 2rem; }
+  h2 { color: #10b981; margin-bottom: 0.5rem; }
+  p { color: #737373; }
+</style>
+</head>
+<body><div class="card"><h2>Logged in to alphaXiv</h2><p>You can close this tab</p></div>
+<script>setTimeout(function(){window.close()},2000)</script>
+</body></html>`;
+
+const ERROR_HTML = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>alphaXiv</title>
+<style>
+  body { font-family: system-ui, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background: #0a0a0a; color: #e5e5e5; }
+  .card { text-align: center; padding: 2rem; }
+  h2 { color: #ef4444; margin-bottom: 0.5rem; }
+  p { color: #737373; }
+</style>
+</head>
+<body><div class="card"><h2>Login failed</h2><p>You can close this tab and try again</p></div></body></html>`;
+
+function startCallbackServer() {
+  return new Promise((resolve, reject) => {
+    const server = createServer();
+
+    server.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        reject(new Error(`Port ${CALLBACK_PORT} is already in use. Close the process using it and try again.`));
+      } else {
+        reject(err);
+      }
+    });
+
+    server.listen(CALLBACK_PORT, '127.0.0.1', () => {
+      resolve(server);
+    });
+  });
 }
 
 function waitForCallback(server) {
@@ -108,7 +154,7 @@ function waitForCallback(server) {
 
       if (error) {
         res.writeHead(200, { 'Content-Type': 'text/html' });
-        res.end('<html><body><h2>Login failed</h2><p>You can close this tab.</p></body></html>');
+        res.end(ERROR_HTML);
         clearTimeout(timeout);
         server.close();
         reject(new Error(`OAuth error: ${error}`));
@@ -117,7 +163,7 @@ function waitForCallback(server) {
 
       if (code) {
         res.writeHead(200, { 'Content-Type': 'text/html' });
-        res.end('<html><body><h2>Logged in to Alpha Hub</h2><p>You can close this tab.</p></body></html>');
+        res.end(SUCCESS_HTML);
         clearTimeout(timeout);
         server.close();
         resolve(code);
@@ -194,8 +240,7 @@ export async function login() {
   authUrl.searchParams.set('code_challenge_method', 'S256');
   authUrl.searchParams.set('state', state);
 
-  const server = createServer();
-  server.listen(CALLBACK_PORT);
+  const server = await startCallbackServer();
 
   process.stderr.write('Opening browser for alphaXiv login...\n');
   openBrowser(authUrl.toString());

@@ -8,7 +8,7 @@ import { registerGetCommand } from './commands/get.js';
 import { registerAskCommand } from './commands/ask.js';
 import { registerAnnotateCommand } from './commands/annotate.js';
 import { registerCodeCommand } from './commands/code.js';
-import { registerLoginCommand, registerLogoutCommand } from './commands/login.js';
+import { registerLoginCommand, registerLogoutCommand, registerStatusCommand } from './commands/login.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8'));
@@ -34,6 +34,7 @@ ${chalk.bold.underline('Usage')}
 ${chalk.bold.underline('Commands')}
 
   ${chalk.bold('login')}                            Log in to alphaXiv (opens browser)
+  ${chalk.bold('status')}                           Show alphaXiv authentication status
   ${chalk.bold('logout')}                           Log out
   ${chalk.bold('search')} <query>                    Search papers (semantic, keyword, both, agentic, or all)
   ${chalk.bold('get')} <url|arxiv-id>                Paper content + local annotation
@@ -63,6 +64,7 @@ program
   });
 
 registerLoginCommand(program);
+registerStatusCommand(program);
 registerLogoutCommand(program);
 registerSearchCommand(program);
 registerGetCommand(program);

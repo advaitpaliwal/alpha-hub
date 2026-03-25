@@ -1,10 +1,25 @@
 import chalk from 'chalk';
 import { searchByEmbedding, searchByKeyword, agenticSearch, disconnect } from '../lib/alphaxiv.js';
-import { output, error } from '../lib/output.js';
+import { output, error, info } from '../lib/output.js';
 
 function formatResults(data) {
   const text = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
   console.log(text);
+}
+
+function describeMode(mode) {
+  switch (mode) {
+    case 'keyword':
+      return 'keyword full-text';
+    case 'agentic':
+      return 'agentic';
+    case 'both':
+      return 'semantic + keyword';
+    case 'all':
+      return 'semantic + keyword + agentic';
+    default:
+      return 'semantic';
+  }
 }
 
 export function registerSearchCommand(program) {
@@ -15,6 +30,9 @@ export function registerSearchCommand(program) {
     .action(async (query, cmdOpts) => {
       const opts = { ...program.opts(), ...cmdOpts };
       try {
+        if (!opts.json) {
+          info(chalk.dim(`Searching alphaXiv (${describeMode(opts.mode)})...`));
+        }
         let results;
         if (opts.mode === 'keyword') {
           results = await searchByKeyword(query);
