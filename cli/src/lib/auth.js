@@ -11,7 +11,20 @@ const AUTH_ENDPOINT = `${CLERK_ISSUER}/oauth/authorize`;
 const TOKEN_ENDPOINT = `${CLERK_ISSUER}/oauth/token`;
 const REGISTER_ENDPOINT = `${CLERK_ISSUER}/oauth/register`;
 const CALLBACK_PORT = 9876;
-const REDIRECT_URI = `http://127.0.0.1:${CALLBACK_PORT}/callback`;
+
+function getListenHost() {
+  try {
+    const version = readFileSync('/proc/version', 'utf8').toLowerCase();
+    if (version.includes('microsoft')) {
+      return execSync('hostname -I').toString().trim().split(' ')[0];
+    }
+  } catch {}
+  return '127.0.0.1';
+}
+
+const LISTEN_HOST = getListenHost();
+
+const REDIRECT_URI = `http://${LISTEN_HOST}:${CALLBACK_PORT}/callback`;
 const USERINFO_ENDPOINT = `${CLERK_ISSUER}/oauth/userinfo`;
 const SCOPES = 'profile email offline_access';
 
@@ -127,7 +140,7 @@ function startCallbackServer() {
       }
     });
 
-    server.listen(CALLBACK_PORT, '127.0.0.1', () => {
+    server.listen(CALLBACK_PORT, LISTEN_HOST, () => {
       resolve(server);
     });
   });
@@ -141,7 +154,7 @@ function waitForCallback(server) {
     }, 120000);
 
     server.on('request', (req, res) => {
-      const url = new URL(req.url, `http://127.0.0.1:${CALLBACK_PORT}`);
+      const url = new URL(req.url, `http://${LISTEN_HOST}:${CALLBACK_PORT}`);
 
       if (url.pathname !== '/callback') {
         res.writeHead(404);
