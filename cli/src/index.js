@@ -30,10 +30,11 @@ ${chalk.bold.underline('Usage')}
   ${chalk.dim('$')} alpha code https://github.com/openai/gpt-2 /       ${chalk.dim('# inspect repo structure')}
   ${chalk.dim('$')} alpha annotate 1706.03762 "key insight"            ${chalk.dim('# save a note')}
   ${chalk.dim('$')} alpha annotate --list                              ${chalk.dim('# see all notes')}
+  ${chalk.dim('$')} alpha login --headless                             ${chalk.dim('# remote / headless login')}
 
 ${chalk.bold.underline('Commands')}
 
-  ${chalk.bold('login')}                            Log in to alphaXiv (opens browser)
+  ${chalk.bold('login')}                            Log in to alphaXiv (${chalk.dim('--headless for remote servers')})
   ${chalk.bold('status')}                           Show alphaXiv authentication status
   ${chalk.bold('logout')}                           Log out
   ${chalk.bold('search')} <query>                    Search papers (semantic, keyword, both, agentic, or all)

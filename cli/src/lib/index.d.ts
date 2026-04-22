@@ -1,9 +1,12 @@
 export declare function disconnect(): Promise<void>;
 export declare function getLoginState(): Promise<"missing" | "valid" | "expired" | "invalid">;
+export declare function getUserEmail(): string | null;
 export declare function getUserName(): string | null;
 export declare function hasSavedAuth(): boolean;
 export declare function isLoggedIn(): boolean;
-export declare function login(): Promise<{
+export declare function login(options?: {
+	headless?: boolean;
+}): Promise<{
 	tokens: unknown;
 	userInfo: unknown;
 }>;

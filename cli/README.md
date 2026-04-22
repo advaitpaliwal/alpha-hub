@@ -12,6 +12,7 @@ npm install -g @companion-ai/alpha-hub
 
 ```bash
 alpha login
+alpha login --headless
 alpha status
 alpha search "attention mechanism"
 alpha get 1706.03762

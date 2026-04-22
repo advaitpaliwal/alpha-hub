@@ -14,12 +14,13 @@ import {
   readAnnotation,
   writeAnnotation,
 } from './annotations.js';
-import { getLoginState, getUserName, hasSavedAuth, isLoggedIn, login, logout } from './auth.js';
+import { getLoginState, getUserEmail, getUserName, hasSavedAuth, isLoggedIn, login, logout } from './auth.js';
 import { normalizePaperId, toArxivUrl } from './papers.js';
 
 export {
   disconnect,
   getLoginState,
+  getUserEmail,
   getUserName,
   hasSavedAuth,
   isLoggedIn,

@@ -5,13 +5,15 @@ import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { execSync } from 'node:child_process';
 import { platform } from 'node:os';
+import { createInterface } from 'node:readline/promises';
 
 const CLERK_ISSUER = 'https://clerk.alphaxiv.org';
 const AUTH_ENDPOINT = `${CLERK_ISSUER}/oauth/authorize`;
 const TOKEN_ENDPOINT = `${CLERK_ISSUER}/oauth/token`;
 const REGISTER_ENDPOINT = `${CLERK_ISSUER}/oauth/register`;
 const CALLBACK_PORT = 9876;
-const REDIRECT_URI = `http://127.0.0.1:${CALLBACK_PORT}/callback`;
+const CALLBACK_PATH = '/callback';
+const REDIRECT_URI = `http://127.0.0.1:${CALLBACK_PORT}${CALLBACK_PATH}`;
 const USERINFO_ENDPOINT = `${CLERK_ISSUER}/oauth/userinfo`;
 const SCOPES = 'profile email offline_access';
 
@@ -49,6 +51,11 @@ export function getUserName() {
   return auth?.user_name || null;
 }
 
+export function getUserEmail() {
+  const auth = loadAuth();
+  return auth?.user_email || null;
+}
+
 export function hasSavedAuth() {
   return !!getAccessToken();
 }
@@ -82,6 +89,18 @@ function generatePKCE() {
   const verifier = randomBytes(32).toString('base64url');
   const challenge = createHash('sha256').update(verifier).digest('base64url');
   return { verifier, challenge };
+}
+
+function buildAuthUrl(clientId, challenge, state) {
+  const authUrl = new URL(AUTH_ENDPOINT);
+  authUrl.searchParams.set('client_id', clientId);
+  authUrl.searchParams.set('redirect_uri', REDIRECT_URI);
+  authUrl.searchParams.set('response_type', 'code');
+  authUrl.searchParams.set('scope', SCOPES);
+  authUrl.searchParams.set('code_challenge', challenge);
+  authUrl.searchParams.set('code_challenge_method', 'S256');
+  authUrl.searchParams.set('state', state);
+  return authUrl;
 }
 
 function openBrowser(url) {
@@ -147,33 +166,107 @@ function waitForCallback(server) {
     server.on('request', (req, res) => {
       const url = new URL(req.url, `http://127.0.0.1:${CALLBACK_PORT}`);
 
-      if (url.pathname !== '/callback') {
+      if (url.pathname !== CALLBACK_PATH) {
         res.writeHead(404);
         res.end();
         return;
       }
 
-      const code = url.searchParams.get('code');
-      const error = url.searchParams.get('error');
-
-      if (error) {
-        res.writeHead(200, { 'Content-Type': 'text/html' });
-        res.end(ERROR_HTML);
-        clearTimeout(timeout);
-        server.close();
-        reject(new Error(`OAuth error: ${error}`));
-        return;
-      }
-
-      if (code) {
+      try {
+        const callback = parseCallbackUrl(url.toString());
         res.writeHead(200, { 'Content-Type': 'text/html' });
         res.end(SUCCESS_HTML);
         clearTimeout(timeout);
         server.close();
-        resolve(code);
+        resolve(callback);
+      } catch (err) {
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end(ERROR_HTML);
+        clearTimeout(timeout);
+        server.close();
+        reject(err);
       }
     });
   });
+}
+
+function normalizeCallbackInput(input) {
+  const trimmed = input.trim();
+  if (!trimmed) {
+    throw new Error('No callback URL provided.');
+  }
+
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed;
+  }
+
+  if (trimmed.startsWith(CALLBACK_PATH)) {
+    return `http://127.0.0.1:${CALLBACK_PORT}${trimmed}`;
+  }
+
+  if (trimmed.startsWith('?')) {
+    return `${REDIRECT_URI}${trimmed}`;
+  }
+
+  if (trimmed.includes('code=')) {
+    return `${REDIRECT_URI}?${trimmed.replace(/^\?/, '')}`;
+  }
+
+  throw new Error('Paste the full callback URL, callback path, or query string from the browser redirect.');
+}
+
+function parseCallbackUrl(input) {
+  const normalizedInput = normalizeCallbackInput(input);
+  let url;
+  try {
+    url = new URL(normalizedInput);
+  } catch {
+    throw new Error('Invalid callback URL. Paste the full redirected URL from the browser.');
+  }
+
+  if (url.pathname !== CALLBACK_PATH) {
+    throw new Error(`Callback URL must point to ${CALLBACK_PATH}.`);
+  }
+
+  const error = url.searchParams.get('error');
+  if (error) {
+    throw new Error(`OAuth error: ${error}`);
+  }
+
+  const code = url.searchParams.get('code');
+  const state = url.searchParams.get('state');
+  if (!code) {
+    throw new Error('Callback URL does not include an authorization code.');
+  }
+
+  return { code, state };
+}
+
+function validateCallbackState(expectedState, callbackState) {
+  if (!callbackState) {
+    throw new Error('Callback URL does not include an OAuth state parameter.');
+  }
+
+  if (callbackState !== expectedState) {
+    throw new Error('OAuth state mismatch. Start `alpha login` again and retry.');
+  }
+}
+
+async function promptForCallbackUrl() {
+  process.stderr.write('Complete sign-in in a browser on any machine.\n');
+  process.stderr.write('When the browser is redirected to the localhost callback and the page fails to load, copy the full URL from the address bar and paste it below.\n\n');
+
+  const readline = createInterface({
+    input: process.stdin,
+    output: process.stderr,
+  });
+
+  try {
+    const callbackUrl = await readline.question('Paste callback URL: ');
+    return callbackUrl.trim();
+  } finally {
+    readline.close();
+  }
 }
 
 async function exchangeCode(code, clientId, codeVerifier) {
@@ -228,32 +321,35 @@ export async function refreshAccessToken() {
   return tokens.access_token;
 }
 
-export async function login() {
+export async function login(options = {}) {
+  const { headless = false } = options;
   const registration = await registerClient();
   const clientId = registration.client_id;
   const { verifier, challenge } = generatePKCE();
 
   const state = randomBytes(16).toString('hex');
+  const authUrl = buildAuthUrl(clientId, challenge, state);
 
-  const authUrl = new URL(AUTH_ENDPOINT);
-  authUrl.searchParams.set('client_id', clientId);
-  authUrl.searchParams.set('redirect_uri', REDIRECT_URI);
-  authUrl.searchParams.set('response_type', 'code');
-  authUrl.searchParams.set('scope', SCOPES);
-  authUrl.searchParams.set('code_challenge', challenge);
-  authUrl.searchParams.set('code_challenge_method', 'S256');
-  authUrl.searchParams.set('state', state);
+  let callback;
+  if (headless) {
+    process.stderr.write('Starting headless alphaXiv login...\n');
+    process.stderr.write(`Open this URL in a browser:\n${authUrl.toString()}\n\n`);
+    const callbackUrl = await promptForCallbackUrl();
+    callback = parseCallbackUrl(callbackUrl);
+  } else {
+    const server = await startCallbackServer();
 
-  const server = await startCallbackServer();
+    process.stderr.write('Opening browser for alphaXiv login...\n');
+    openBrowser(authUrl.toString());
+    process.stderr.write(`If browser didn't open, visit:\n${authUrl.toString()}\n\n`);
+    process.stderr.write('Waiting for login...\n');
 
-  process.stderr.write('Opening browser for alphaXiv login...\n');
-  openBrowser(authUrl.toString());
-  process.stderr.write(`If browser didn't open, visit:\n${authUrl.toString()}\n\n`);
-  process.stderr.write('Waiting for login...\n');
+    callback = await waitForCallback(server);
+  }
 
-  const code = await waitForCallback(server);
+  validateCallbackState(state, callback.state);
 
-  const tokens = await exchangeCode(code, clientId, verifier);
+  const tokens = await exchangeCode(callback.code, clientId, verifier);
 
   const userInfo = await fetchUserInfo(tokens.access_token);
 

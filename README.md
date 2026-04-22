@@ -10,6 +10,7 @@ Research agents hallucinate paper details and forget what they learn in a sessio
 ```bash
 npm install -g @companion-ai/alpha-hub
 alpha login                        # sign in with alphaXiv
+alpha login --headless             # remote / headless login
 alpha status                       # show whether alphaXiv auth is valid
 alpha search "attention mechanism" # search papers
 alpha get 1706.03762               # fetch paper report
@@ -53,6 +54,7 @@ alpha ask 1706.03762 "What datasets were used for evaluation?"
 | `alpha annotate <id> --clear` | Remove a note |
 | `alpha annotate --list` | List all notes |
 | `alpha login` | Sign in with alphaXiv |
+| `alpha login --headless` | Sign in on a remote or headless machine |
 | `alpha status` | Show alphaXiv authentication status |
 | `alpha logout` | Sign out |
 

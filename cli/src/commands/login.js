@@ -1,21 +1,32 @@
 import chalk from 'chalk';
-import { getLoginState, getUserName, login, logout } from '../lib/auth.js';
+import { getLoginState, getUserEmail, getUserName, login, logout } from '../lib/auth.js';
+
+function formatIdentity(name, email) {
+  if (name && email) {
+    return `${name} <${email}>`;
+  }
+
+  return name || (email ? `<${email}>` : 'unknown');
+}
 
 export function registerLoginCommand(program) {
   program
     .command('login')
-    .description('Log in to alphaXiv (opens browser)')
-    .action(async () => {
+    .description('Log in to alphaXiv')
+    .option('--headless', 'Print the auth URL and accept a pasted callback URL instead of opening a browser')
+    .action(async (cmdOpts) => {
       try {
+        const opts = { ...program.opts(), ...cmdOpts };
         const loginState = await getLoginState();
         if (loginState === 'valid') {
           process.stderr.write(chalk.dim('Already logged in. Use `alpha logout` to sign out first.\n'));
         } else if (loginState === 'expired' || loginState === 'invalid') {
           process.stderr.write(chalk.dim('Saved alphaXiv session is expired or invalid. Continuing with a fresh login.\n'));
         }
-        const { userInfo } = await login();
+        const { userInfo } = await login({ headless: !!opts.headless });
         const name = userInfo?.name || userInfo?.email || 'unknown';
-        console.log(chalk.green(`Logged in to alphaXiv as ${name}`));
+        const email = userInfo?.email || null;
+        console.log(chalk.green(`Logged in to alphaXiv as ${formatIdentity(name, email)}`));
       } catch (err) {
         process.stderr.write(`${chalk.red('Login failed:')} ${err.message}\n`);
         process.exit(1);
@@ -58,6 +69,7 @@ export function registerStatusCommand(program) {
       }
 
       const name = getUserName();
-      console.log(chalk.green(name ? `Logged in to alphaXiv as ${name}` : 'Logged in to alphaXiv'));
+      const email = getUserEmail();
+      console.log(chalk.green(`Logged in to alphaXiv as ${formatIdentity(name, email)}`));
     });
 }
