@@ -10,7 +10,7 @@ Research agents hallucinate paper details and forget what they learn in a sessio
 ```bash
 npm install -g @companion-ai/alpha-hub
 alpha login                        # sign in with alphaXiv
-alpha status                       # show whether alphaXiv auth is present
+alpha status                       # show whether alphaXiv auth is valid
 alpha search "attention mechanism" # search papers
 alpha get 1706.03762               # fetch paper report
 ```

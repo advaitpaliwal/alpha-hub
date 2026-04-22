@@ -49,6 +49,10 @@ export function getUserName() {
   return auth?.user_name || null;
 }
 
+export function hasSavedAuth() {
+  return !!getAccessToken();
+}
+
 async function fetchUserInfo(accessToken) {
   const res = await fetch(USERINFO_ENDPOINT, {
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -278,8 +282,26 @@ export async function getValidToken() {
   return null;
 }
 
+export async function getLoginState() {
+  const auth = loadAuth();
+  if (!auth?.access_token) {
+    return 'missing';
+  }
+
+  const token = await getValidToken();
+  if (token) {
+    return 'valid';
+  }
+
+  if (auth?.expires_at && Date.now() > auth.expires_at - 60000) {
+    return 'expired';
+  }
+
+  return 'invalid';
+}
+
 export function isLoggedIn() {
-  return !!getAccessToken();
+  return hasSavedAuth();
 }
 
 export function logout() {
