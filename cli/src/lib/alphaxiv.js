@@ -125,26 +125,29 @@ async function callTool(name, args) {
   throw lastError ?? new Error('alphaXiv MCP call failed');
 }
 
+function discoverPaperArgs(query, difficulty = 1) {
+  return {
+    keywords: query.split(/\s+/).filter(Boolean),
+    question: query,
+    difficulty,
+  };
+}
+
 export async function searchByEmbedding(query) {
-  return await callTool('embedding_similarity_search', { query });
+  return await callTool('discover_papers', discoverPaperArgs(query));
 }
 
 export async function searchByKeyword(query) {
-  return await callTool('full_text_papers_search', { query });
+  return await callTool('discover_papers', discoverPaperArgs(query));
 }
 
 export async function agenticSearch(query) {
-  return await callTool('agentic_paper_retrieval', { query });
+  return await callTool('discover_papers', discoverPaperArgs(query, 3));
 }
 
 export async function searchAll(query) {
-  const [semantic, keyword, agentic] = await Promise.all([
-    searchByEmbedding(query),
-    searchByKeyword(query),
-    agenticSearch(query),
-  ]);
-
-  return { semantic, keyword, agentic };
+  const results = await agenticSearch(query);
+  return { semantic: results, keyword: results, agentic: results };
 }
 
 export async function getPaperContent(url, { fullText = false } = {}) {
