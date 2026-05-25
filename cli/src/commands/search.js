@@ -1,10 +1,40 @@
 import chalk from 'chalk';
-import { searchByEmbedding, searchByKeyword, agenticSearch, disconnect } from '../lib/alphaxiv.js';
+import { searchPapers, disconnect } from '../lib/index.js';
 import { output, error, info } from '../lib/output.js';
 
+function formatResultBlock({ results }) {
+  if (!results?.length) {
+    console.log(chalk.dim('No results.'));
+    return;
+  }
+  results.forEach(r => {
+    const prefix = r.rank ? `${r.rank}. ` : '';
+    console.log(chalk.bold(`${prefix}${r.title || '(untitled)'}`) +
+      (r.arxivId ? chalk.dim(` [${r.arxivId}]`) : ''));
+    if (r.publishedAt) console.log(chalk.dim(`   Published: ${r.publishedAt}`) +
+      (r.organizations ? chalk.dim(` — ${r.organizations}`) : ''));
+    if (r.arxivUrl) console.log(chalk.dim(`   ${r.arxivUrl}`));
+    if (r.abstract) {
+      const snippet = r.abstract.length > 280 ? r.abstract.slice(0, 280) + '…' : r.abstract;
+      console.log(`   ${snippet}`);
+    }
+    console.log();
+  });
+}
+
 function formatResults(data) {
-  const text = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
-  console.log(text);
+  if (data.results) {
+    formatResultBlock(data);
+    return;
+  }
+  // multi-mode (both / all): data has semantic / keyword / agentic sub-objects
+  for (const [key, val] of Object.entries(data)) {
+    if (key === 'query' || key === 'mode') continue;
+    if (val?.results) {
+      console.log(chalk.underline(`\n${key}:`));
+      formatResultBlock(val);
+    }
+  }
 }
 
 function describeMode(mode) {
@@ -33,27 +63,7 @@ export function registerSearchCommand(program) {
         if (!opts.json) {
           info(chalk.dim(`Searching alphaXiv (${describeMode(opts.mode)})...`));
         }
-        let results;
-        if (opts.mode === 'keyword') {
-          results = await searchByKeyword(query);
-        } else if (opts.mode === 'agentic') {
-          results = await agenticSearch(query);
-        } else if (opts.mode === 'both') {
-          const [semantic, keyword] = await Promise.all([
-            searchByEmbedding(query),
-            searchByKeyword(query),
-          ]);
-          results = { semantic, keyword };
-        } else if (opts.mode === 'all') {
-          const [semantic, keyword, agentic] = await Promise.all([
-            searchByEmbedding(query),
-            searchByKeyword(query),
-            agenticSearch(query),
-          ]);
-          results = { semantic, keyword, agentic };
-        } else {
-          results = await searchByEmbedding(query);
-        }
+        const results = await searchPapers(query, opts.mode);
         output(results, formatResults, opts);
       } catch (err) {
         error(err.message, opts);

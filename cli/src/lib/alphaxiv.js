@@ -125,26 +125,47 @@ async function callTool(name, args) {
   throw lastError ?? new Error('alphaXiv MCP call failed');
 }
 
+function discoverArgs(query, difficulty) {
+  const text = (typeof query === 'string' ? query : String(query ?? '')).trim();
+  if (!text) throw new Error('Search query must not be empty.');
+  return {
+    keywords: text.split(/\s+/),
+    question: text,
+    difficulty,
+  };
+}
+
+async function discoverPapers(query, difficulty) {
+  return await callTool('discover_papers', discoverArgs(query, difficulty));
+}
+
+// The legacy `embedding_similarity_search`, `full_text_papers_search`, and
+// `agentic_paper_retrieval` tools were removed from the alphaXiv MCP server
+// and replaced by a single `discover_papers` tool. We preserve the original
+// function names so existing callers keep working, mapping them to sensible
+// `difficulty` levels.
 export async function searchByEmbedding(query) {
-  return await callTool('embedding_similarity_search', { query });
+  return await discoverPapers(query, 1);
 }
 
 export async function searchByKeyword(query) {
-  return await callTool('full_text_papers_search', { query });
+  return await discoverPapers(query, 1);
 }
 
 export async function agenticSearch(query) {
-  return await callTool('agentic_paper_retrieval', { query });
+  return await discoverPapers(query, 3);
 }
 
 export async function searchAll(query) {
-  const [semantic, keyword, agentic] = await Promise.all([
-    searchByEmbedding(query),
-    searchByKeyword(query),
-    agenticSearch(query),
+  // `semantic` and `keyword` both use difficulty 1 (consistent with their
+  // individual wrappers). `agentic` uses difficulty 3 for multi-round search.
+  // Both calls are issued in parallel and the difficulty-1 result is reused
+  // for the two shallower keys to avoid a redundant third request.
+  const [broad, agentic] = await Promise.all([
+    discoverPapers(query, 1),
+    discoverPapers(query, 3),
   ]);
-
-  return { semantic, keyword, agentic };
+  return { semantic: broad, keyword: broad, agentic };
 }
 
 export async function getPaperContent(url, { fullText = false } = {}) {
@@ -154,15 +175,7 @@ export async function getPaperContent(url, { fullText = false } = {}) {
 }
 
 export async function answerPdfQuery(url, query) {
-  try {
-    return await callTool('answer_pdf_queries', { urls: [url], queries: [query] });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    if (message.includes('Input validation error') || message.includes('Invalid arguments')) {
-      return await callTool('answer_pdf_queries', { url, query });
-    }
-    throw err;
-  }
+  return await callTool('answer_pdf_queries', { url, queries: [query] });
 }
 
 export async function readGithubRepo(githubUrl, path = '/') {
