@@ -123,11 +123,10 @@ export async function searchPapers(query, mode = 'semantic', options = {}) {
   if (mode === 'keyword') return normalizeSearchPayload(query, mode, await searchByKeyword(query), options);
   if (mode === 'agentic') return normalizeSearchPayload(query, mode, await agenticSearch(query), options);
   if (mode === 'both') {
-    const [semantic, keyword] = await Promise.all([
-      searchByEmbedding(query),
-      searchByKeyword(query),
-    ]);
-    return normalizeSearchPayload(query, mode, { semantic, keyword }, options);
+    // `discover_papers` replaces both semantic and keyword search, so we
+    // make a single request and reuse it under both keys.
+    const result = await searchByEmbedding(query);
+    return normalizeSearchPayload(query, mode, { semantic: result, keyword: result }, options);
   }
   if (mode === 'all') return normalizeSearchPayload(query, mode, await searchAll(query), options);
   return normalizeSearchPayload(query, mode, await searchByEmbedding(query), options);

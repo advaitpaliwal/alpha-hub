@@ -125,26 +125,43 @@ async function callTool(name, args) {
   throw lastError ?? new Error('alphaXiv MCP call failed');
 }
 
+function discoverArgs(query, difficulty) {
+  const text = typeof query === 'string' ? query : String(query ?? '');
+  const keywords = text.split(/\s+/).filter(Boolean);
+  return {
+    keywords: keywords.length > 0 ? keywords : [text].filter(Boolean),
+    question: text,
+    difficulty,
+  };
+}
+
+async function discoverPapers(query, difficulty) {
+  return await callTool('discover_papers', discoverArgs(query, difficulty));
+}
+
+// The legacy `embedding_similarity_search`, `full_text_papers_search`, and
+// `agentic_paper_retrieval` tools were removed from the alphaXiv MCP server
+// and replaced by a single `discover_papers` tool. We preserve the original
+// function names so existing callers keep working, mapping them to sensible
+// `difficulty` levels.
 export async function searchByEmbedding(query) {
-  return await callTool('embedding_similarity_search', { query });
+  return await discoverPapers(query, 1);
 }
 
 export async function searchByKeyword(query) {
-  return await callTool('full_text_papers_search', { query });
+  return await discoverPapers(query, 1);
 }
 
 export async function agenticSearch(query) {
-  return await callTool('agentic_paper_retrieval', { query });
+  return await discoverPapers(query, 3);
 }
 
 export async function searchAll(query) {
-  const [semantic, keyword, agentic] = await Promise.all([
-    searchByEmbedding(query),
-    searchByKeyword(query),
-    agenticSearch(query),
-  ]);
-
-  return { semantic, keyword, agentic };
+  // All three legacy modes now resolve to the same `discover_papers` tool, so
+  // we issue a single agentic call and reuse the result instead of firing
+  // three identical requests in parallel.
+  const result = await discoverPapers(query, 3);
+  return { semantic: result, keyword: result, agentic: result };
 }
 
 export async function getPaperContent(url, { fullText = false } = {}) {

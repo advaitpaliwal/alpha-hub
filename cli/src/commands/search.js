@@ -1,5 +1,11 @@
 import chalk from 'chalk';
-import { searchByEmbedding, searchByKeyword, agenticSearch, disconnect } from '../lib/alphaxiv.js';
+import {
+  searchByEmbedding,
+  searchByKeyword,
+  agenticSearch,
+  searchAll,
+  disconnect,
+} from '../lib/alphaxiv.js';
 import { output, error, info } from '../lib/output.js';
 
 function formatResults(data) {
@@ -39,18 +45,13 @@ export function registerSearchCommand(program) {
         } else if (opts.mode === 'agentic') {
           results = await agenticSearch(query);
         } else if (opts.mode === 'both') {
-          const [semantic, keyword] = await Promise.all([
-            searchByEmbedding(query),
-            searchByKeyword(query),
-          ]);
-          results = { semantic, keyword };
+          // alphaXiv merged semantic and keyword search into a single
+          // `discover_papers` tool, so we issue one request and surface it
+          // under both keys to keep the existing CLI output shape.
+          const result = await searchByEmbedding(query);
+          results = { semantic: result, keyword: result };
         } else if (opts.mode === 'all') {
-          const [semantic, keyword, agentic] = await Promise.all([
-            searchByEmbedding(query),
-            searchByKeyword(query),
-            agenticSearch(query),
-          ]);
-          results = { semantic, keyword, agentic };
+          results = await searchAll(query);
         } else {
           results = await searchByEmbedding(query);
         }
