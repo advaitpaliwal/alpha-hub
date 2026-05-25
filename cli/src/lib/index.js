@@ -79,9 +79,9 @@ export function parsePaperSearchResults(text, options = {}) {
   const results = blocks.map((block, index) => {
     const newMatch = block.match(newFormatLine);
     if (newMatch) {
-      const [, , arxivId, title, publishedAt, organizations, abstract] = newMatch;
+      const [, rankStr, arxivId, title, publishedAt, organizations, abstract] = newMatch;
       return {
-        rank: index + 1,
+        rank: parseInt(rankStr, 10),
         title: cleanSearchField(title),
         visits: null,
         likes: null,
@@ -128,9 +128,16 @@ export function parsePaperSearchResults(text, options = {}) {
 
 function normalizeSearchPayload(query, mode, payload, options = {}) {
   if (mode === 'all' || mode === 'both') {
+    // Use a Map keyed on the raw value so identical strings (e.g. the shared
+    // difficulty-1 result under both `semantic` and `keyword`) are only parsed
+    // once rather than once per key.
+    const parseCache = new Map();
     const normalized = {};
     for (const [key, value] of Object.entries(payload)) {
-      normalized[key] = parsePaperSearchResults(value, options);
+      if (!parseCache.has(value)) {
+        parseCache.set(value, parsePaperSearchResults(value, options));
+      }
+      normalized[key] = parseCache.get(value);
     }
     return {
       query,

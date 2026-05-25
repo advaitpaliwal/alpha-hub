@@ -126,10 +126,10 @@ async function callTool(name, args) {
 }
 
 function discoverArgs(query, difficulty) {
-  const text = typeof query === 'string' ? query : String(query ?? '');
-  const keywords = text.split(/\s+/).filter(Boolean);
+  const text = (typeof query === 'string' ? query : String(query ?? '')).trim();
+  if (!text) throw new Error('Search query must not be empty.');
   return {
-    keywords: keywords.length > 0 ? keywords : [text].filter(Boolean),
+    keywords: text.split(/\s+/),
     question: text,
     difficulty,
   };
@@ -157,11 +157,15 @@ export async function agenticSearch(query) {
 }
 
 export async function searchAll(query) {
-  // All three legacy modes now resolve to the same `discover_papers` tool, so
-  // we issue a single agentic call and reuse the result instead of firing
-  // three identical requests in parallel.
-  const result = await discoverPapers(query, 3);
-  return { semantic: result, keyword: result, agentic: result };
+  // `semantic` and `keyword` both use difficulty 1 (consistent with their
+  // individual wrappers). `agentic` uses difficulty 3 for multi-round search.
+  // Both calls are issued in parallel and the difficulty-1 result is reused
+  // for the two shallower keys to avoid a redundant third request.
+  const [broad, agentic] = await Promise.all([
+    discoverPapers(query, 1),
+    discoverPapers(query, 3),
+  ]);
+  return { semantic: broad, keyword: broad, agentic };
 }
 
 export async function getPaperContent(url, { fullText = false } = {}) {
