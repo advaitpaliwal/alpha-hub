@@ -62,12 +62,40 @@ export function parsePaperSearchResults(text, options = {}) {
     return { results: [] };
   }
 
+  // The new `discover_papers` tool returns one result per line in the form:
+  //   `N. [ID=arxiv_id] **Title**. Published YYYY-MM-DD[ by Org1, Org2, ...]: Abstract...`
+  // The legacy tools used a multi-line block format with explicit
+  // `- arXiv Id:` / `- Organizations:` / `- Authors:` / `- Abstract:` fields.
+  // We try the new format first and fall back to the legacy parser per block
+  // so the public shape stays stable.
+
+  const newFormatLine = /^(\d+)\.\s+\[ID=([^\]]+)\]\s+\*\*([\s\S]+?)\*\*\.\s+Published\s+([\d-]+)(?:\s+by\s+([\s\S]+?))?:\s*([\s\S]*)$/;
+
   const blocks = text
-    .split(/\n(?=\d+\.\s+\*\*)/g)
+    .split(/\n(?=\d+\.\s+(?:\*\*|\[ID=))/g)
     .map((block) => block.trim())
     .filter(Boolean);
 
   const results = blocks.map((block, index) => {
+    const newMatch = block.match(newFormatLine);
+    if (newMatch) {
+      const [, , arxivId, title, publishedAt, organizations, abstract] = newMatch;
+      return {
+        rank: index + 1,
+        title: cleanSearchField(title),
+        visits: null,
+        likes: null,
+        publishedAt: cleanSearchField(publishedAt),
+        organizations: cleanSearchField(organizations || null),
+        authors: null,
+        abstract: cleanSearchField(abstract),
+        arxivId: cleanSearchField(arxivId),
+        arxivUrl: arxivId ? `https://arxiv.org/abs/${arxivId.trim()}` : null,
+        alphaXivUrl: arxivId ? `https://www.alphaxiv.org/overview/${arxivId.trim()}` : null,
+        ...(includeRaw ? { raw: block } : {}),
+      };
+    }
+
     const lines = block.split('\n').map((line) => line.trim()).filter(Boolean);
     const header = lines[0] || '';
     const headerMatch = header.match(/^\d+\.\s+\*\*(.+?)\*\*\s+\((.+)\)$/);
