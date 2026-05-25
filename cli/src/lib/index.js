@@ -83,11 +83,8 @@ export function parsePaperSearchResults(text, options = {}) {
       return {
         rank: parseInt(rankStr, 10),
         title: cleanSearchField(title),
-        visits: null,
-        likes: null,
         publishedAt: cleanSearchField(publishedAt),
         organizations: cleanSearchField(organizations || null),
-        authors: null,
         abstract: cleanSearchField(abstract),
         arxivId: cleanSearchField(arxivId),
         arxivUrl: arxivId ? `https://arxiv.org/abs/${arxivId.trim()}` : null,

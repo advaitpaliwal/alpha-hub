@@ -175,15 +175,7 @@ export async function getPaperContent(url, { fullText = false } = {}) {
 }
 
 export async function answerPdfQuery(url, query) {
-  try {
-    return await callTool('answer_pdf_queries', { urls: [url], queries: [query] });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    if (message.includes('Input validation error') || message.includes('Invalid arguments')) {
-      return await callTool('answer_pdf_queries', { url, query });
-    }
-    throw err;
-  }
+  return await callTool('answer_pdf_queries', { url, queries: [query] });
 }
 
 export async function readGithubRepo(githubUrl, path = '/') {
