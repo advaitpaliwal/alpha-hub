@@ -6,13 +6,15 @@ import { homedir } from 'node:os';
 import { execSync } from 'node:child_process';
 import { platform } from 'node:os';
 
-const CLERK_ISSUER = 'https://clerk.alphaxiv.org';
-const AUTH_ENDPOINT = `${CLERK_ISSUER}/oauth/authorize`;
-const TOKEN_ENDPOINT = `${CLERK_ISSUER}/oauth/token`;
-const REGISTER_ENDPOINT = `${CLERK_ISSUER}/oauth/register`;
+// alphaXiv migrated off Clerk to its own OAuth 2.1 server.
+// Discovery document: https://api.alphaxiv.org/auth/.well-known/oauth-authorization-server
+const CLERK_ISSUER = process.env.ALPHAXIV_ISSUER || 'https://api.alphaxiv.org/auth';
+const AUTH_ENDPOINT = `${CLERK_ISSUER}/oauth2/authorize`;
+const TOKEN_ENDPOINT = `${CLERK_ISSUER}/oauth2/token`;
+const REGISTER_ENDPOINT = `${CLERK_ISSUER}/oauth2/register`;
 const CALLBACK_PORT = 9876;
 const REDIRECT_URI = `http://127.0.0.1:${CALLBACK_PORT}/callback`;
-const USERINFO_ENDPOINT = `${CLERK_ISSUER}/oauth/userinfo`;
+const USERINFO_ENDPOINT = `${CLERK_ISSUER}/oauth2/userinfo`;
 const SCOPES = 'profile email offline_access';
 
 function getAuthPath() {
@@ -58,20 +60,27 @@ async function fetchUserInfo(accessToken) {
 }
 
 async function registerClient() {
-  const res = await fetch(REGISTER_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      client_name: 'Alpha Hub CLI',
-      redirect_uris: [REDIRECT_URI],
-      grant_types: ['authorization_code'],
-      response_types: ['code'],
-      token_endpoint_auth_method: 'none',
-    }),
-  });
+  try {
+    const res = await fetch(REGISTER_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        client_name: 'Alpha Hub CLI',
+        redirect_uris: [REDIRECT_URI],
+        grant_types: ['authorization_code'],
+        response_types: ['code'],
+        token_endpoint_auth_method: 'none',
+      }),
+    });
 
-  if (!res.ok) throw new Error(`Client registration failed: ${res.status}`);
-  return await res.json();
+    if (!res.ok) throw new Error(`Client registration failed: ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    if (err instanceof TypeError && (err.cause?.code === 'ENOTFOUND' || err.cause?.code === 'EAI_AGAIN')) {
+      throw new Error(`alphaXiv auth endpoint unreachable: ${REGISTER_ENDPOINT} (${err.cause.code}) — check your network or set ALPHAXIV_ISSUER to a reachable OAuth endpoint`);
+    }
+    throw err;
+  }
 }
 
 function generatePKCE() {
