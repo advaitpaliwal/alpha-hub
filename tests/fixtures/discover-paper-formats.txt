@@ -1,0 +1,6 @@
+1. [ID=2401.00001] **Synthetic Grouped Paper** (https://www.alphaxiv.org/abs/2401.00001). Published 2024-01-01 by Example University, Example Lab · 1118 votes · 181172 views: Synthetic grouped abstract.
+2. [ID=2606.00002] **Synthetic Paper: No Groups** (https://www.alphaxiv.org/abs/2606.00002). Published 2026-06-01 · 13 votes · 110 views: Synthetic abstract without organizations.
+3. [ID=2401.00003] **Synthetic Prior Format**. Published 2024-01-03 by Example Lab: Synthetic prior-format abstract.
+4. [ID=2401.00004] **Synthetic Wrapped
+Title** (https://www.alphaxiv.org/abs/2401.00004). Published 2024-01-04 by Example Lab · 0 votes · 1,234 views: Synthetic wrapped
+abstract.

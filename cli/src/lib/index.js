@@ -96,13 +96,13 @@ export function parsePaperSearchResults(text, options = {}) {
   }
 
   // The new `discover_papers` tool returns one result per line in the form:
-  //   `N. [ID=arxiv_id] **Title**. Published YYYY-MM-DD[ by Org1, Org2, ...]: Abstract...`
+  //   `N. [ID=arxiv_id] **Title** [(source URL)]. Published YYYY-MM-DD[ by Orgs][ · N votes][ · N views]: Abstract...`
   // The legacy tools used a multi-line block format with explicit
   // `- arXiv Id:` / `- Organizations:` / `- Authors:` / `- Abstract:` fields.
   // We try the new format first and fall back to the legacy parser per block
   // so the public shape stays stable.
 
-  const newFormatLine = /^(\d+)\.\s+\[ID=([^\]]+)\]\s+\*\*([\s\S]+?)\*\*\.\s+Published\s+([\d-]+)(?:\s+by\s+([\s\S]+?))?:\s*([\s\S]*)$/;
+  const newFormatLine = /^(\d+)\.\s+\[ID=([^\]]+)\]\s+\*\*([\s\S]+?)\*\*(?:\s+\(https?:\/\/[^\s)]+\))?\.\s+Published\s+([\d-]+)(?:\s+by\s+([\s\S]+?))?(?:\s+·\s+([\d,]+)\s+votes)?(?:\s+·\s+([\d,]+)\s+views)?:\s*([\s\S]*)$/;
 
   const blocks = text
     .split(/\n(?=\d+\.\s+(?:\*\*|\[ID=))/g)
@@ -112,11 +112,11 @@ export function parsePaperSearchResults(text, options = {}) {
   const results = blocks.map((block, index) => {
     const newMatch = block.match(newFormatLine);
     if (newMatch) {
-      const [, rankStr, arxivId, title, publishedAt, organizations, abstract] = newMatch;
+      const [, rankStr, arxivId, title, publishedAt, organizations, votes, views, abstract] = newMatch;
       return {
         rank: parseInt(rankStr, 10),
-        visits: null,
-        likes: null,
+        visits: views === undefined ? null : Number(views.replaceAll(',', '')),
+        likes: votes === undefined ? null : Number(votes.replaceAll(',', '')),
         authors: null,
         title: cleanSearchField(title),
         publishedAt: cleanSearchField(publishedAt),

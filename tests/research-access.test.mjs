@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { loadSource } from './helpers/load-source.mjs';
 
@@ -171,13 +172,49 @@ test('modern, legacy and structured paper results preserve the library result fi
   assert.equal((await structured.lib.searchPapers('graph')).results[0].title, 'Structured Paper');
 });
 
-test('paper Q&A uses the maintained paper/queries payload and errors are not hidden', async () => {
-  const { raw, calls } = await mockSearch();
-  await raw.answerPdfQuery('https://arxiv.org/abs/1706.03762', 'Which optimizer?');
+test('discovery source URLs and vote/view metrics preserve normalized paper fields', async () => {
+  const fixture = readFileSync(new URL('./fixtures/discover-paper-formats.txt', import.meta.url), 'utf8').trim();
+  const { lib } = await mockSearch(fixture);
+  const parsed = await lib.searchPapers('synthetic papers', 'semantic', { includeRaw: true });
+  assert.equal(parsed.results.length, 4);
+  assert.equal(parsed.raw, fixture);
+  const expected = [
+    ['2401.00001', 'Synthetic Grouped Paper', '2024-01-01', 'Example University, Example Lab', 1118, 181172, 'Synthetic grouped abstract.'],
+    ['2606.00002', 'Synthetic Paper: No Groups', '2026-06-01', null, 13, 110, 'Synthetic abstract without organizations.'],
+    ['2401.00003', 'Synthetic Prior Format', '2024-01-03', 'Example Lab', null, null, 'Synthetic prior-format abstract.'],
+    ['2401.00004', 'Synthetic Wrapped Title', '2024-01-04', 'Example Lab', 0, 1234, 'Synthetic wrapped abstract.'],
+  ];
+  expected.forEach(([id, title, date, organizations, likes, visits, abstract], index) => {
+    const result = parsed.results[index];
+    assert.deepEqual(plain(result), {
+      rank: index + 1, arxivId: id, title, publishedAt: date, organizations,
+      authors: null, likes, visits, abstract,
+      arxivUrl: `https://arxiv.org/abs/${id}`, alphaXivUrl: `https://www.alphaxiv.org/overview/${id}`,
+      raw: result.raw,
+    });
+    assert.match(result.raw, /^\d+\. \[ID=/);
+    assert.doesNotMatch(result.organizations || '', /votes|views/);
+  });
+  for (const metadata of ['', ' · 5 votes', ' · 9 views', ' · 5 votes · 9 views']) {
+    const result = lib.parsePaperSearchResults(
+      `1. [ID=2401.00005] **Synthetic Optional Fields**. Published 2024-01-05${metadata}: Synthetic abstract.`,
+    ).results[0];
+    assert.equal(result.organizations, null);
+    assert.equal(result.likes, metadata.includes('votes') ? 5 : null);
+    assert.equal(result.visits, metadata.includes('views') ? 9 : null);
+    assert.equal(result.abstract, 'Synthetic abstract.');
+  }
+});
+
+test('paper Q&A uses paper/queries and preserves returned XML sections, not a generated answer', async () => {
+  const xml = '<paper id="1706.03762"><page num="4">Synthetic optimizer evidence.</page></paper>';
+  const { raw, lib, calls } = await mockSearch(xml);
+  assert.equal(await raw.answerPdfQuery('https://arxiv.org/abs/1706.03762', 'Which optimizer?'), xml);
   assert.deepEqual(calls[0], {
     name: 'answer_pdf_queries',
     arguments: { paper: 'https://arxiv.org/abs/1706.03762', queries: ['Which optimizer?'] },
   });
+  assert.equal((await lib.askPaper('1706.03762', 'Which optimizer?')).answer, xml);
   const failing = await mockSearch(modern, 'Permission denied');
   await assert.rejects(failing.raw.searchByKeyword('graph'), /Permission denied/);
   assert.equal(failing.calls.length, 1);
