@@ -56,18 +56,79 @@ function cleanSearchField(value) {
   return normalized || null;
 }
 
+function normalizeStructuredSearchResult(entry, index, includeRaw) {
+  const linkId = typeof entry.link === 'string' ? entry.link.replace(/^\/abs\//, '').trim() : '';
+  const paperId = typeof entry.paperId === 'string' && entry.paperId.trim() ? entry.paperId.trim() : (linkId || null);
+  const snippet = typeof entry.snippet === 'string' ? entry.snippet : (typeof entry.abstract === 'string' ? entry.abstract : null);
+  return {
+    rank: index + 1,
+    title: cleanSearchField(typeof entry.title === 'string' ? entry.title : null),
+    visits: null,
+    likes: null,
+    publishedAt: null,
+    organizations: null,
+    authors: cleanSearchField(typeof entry.authors === 'string' ? entry.authors : null),
+    abstract: cleanSearchField(snippet),
+    arxivId: cleanSearchField(paperId),
+    arxivUrl: paperId ? `https://arxiv.org/abs/${paperId}` : null,
+    alphaXivUrl: paperId ? `https://www.alphaxiv.org/overview/${paperId}` : null,
+    ...(includeRaw ? { raw: JSON.stringify(entry) } : {}),
+  };
+}
+
+function parseStructuredSearchResults(payload, includeRaw) {
+  const entries = Array.isArray(payload)
+    ? payload
+    : ['results', 'papers', 'data'].map((key) => payload?.[key]).find((value) => Array.isArray(value));
+  if (!Array.isArray(entries)) {
+    return null;
+  }
+  const results = entries
+    .filter((entry) => entry && typeof entry === 'object')
+    .map((entry, index) => normalizeStructuredSearchResult(entry, index, includeRaw));
+  return includeRaw ? { raw: JSON.stringify(payload), results } : { results };
+}
+
 export function parsePaperSearchResults(text, options = {}) {
   const includeRaw = options.includeRaw === true;
   if (typeof text !== 'string') {
-    return { results: [] };
+    return parseStructuredSearchResults(text, includeRaw) ?? { results: [] };
   }
 
+  // The new `discover_papers` tool returns one result per line in the form:
+  //   `N. [ID=arxiv_id] **Title** [(source URL)]. Published YYYY-MM-DD[ by Orgs][ · N votes][ · N views]: Abstract...`
+  // The legacy tools used a multi-line block format with explicit
+  // `- arXiv Id:` / `- Organizations:` / `- Authors:` / `- Abstract:` fields.
+  // We try the new format first and fall back to the legacy parser per block
+  // so the public shape stays stable.
+
+  const newFormatLine = /^(\d+)\.\s+\[ID=([^\]]+)\]\s+\*\*([\s\S]+?)\*\*(?:\s+\(https?:\/\/[^\s)]+\))?\.\s+Published\s+([\d-]+)(?:\s+by\s+([\s\S]+?))?(?:\s+·\s+([\d,]+)\s+votes)?(?:\s+·\s+([\d,]+)\s+views)?:\s*([\s\S]*)$/;
+
   const blocks = text
-    .split(/\n(?=\d+\.\s+\*\*)/g)
+    .split(/\n(?=\d+\.\s+(?:\*\*|\[ID=))/g)
     .map((block) => block.trim())
     .filter(Boolean);
 
   const results = blocks.map((block, index) => {
+    const newMatch = block.match(newFormatLine);
+    if (newMatch) {
+      const [, rankStr, arxivId, title, publishedAt, organizations, votes, views, abstract] = newMatch;
+      return {
+        rank: parseInt(rankStr, 10),
+        visits: views === undefined ? null : Number(views.replaceAll(',', '')),
+        likes: votes === undefined ? null : Number(votes.replaceAll(',', '')),
+        authors: null,
+        title: cleanSearchField(title),
+        publishedAt: cleanSearchField(publishedAt),
+        organizations: cleanSearchField(organizations || null),
+        abstract: cleanSearchField(abstract),
+        arxivId: cleanSearchField(arxivId),
+        arxivUrl: arxivId ? `https://arxiv.org/abs/${arxivId.trim()}` : null,
+        alphaXivUrl: arxivId ? `https://www.alphaxiv.org/overview/${arxivId.trim()}` : null,
+        ...(includeRaw ? { raw: block } : {}),
+      };
+    }
+
     const lines = block.split('\n').map((line) => line.trim()).filter(Boolean);
     const header = lines[0] || '';
     const headerMatch = header.match(/^\d+\.\s+\*\*(.+?)\*\*\s+\((.+)\)$/);
@@ -100,9 +161,16 @@ export function parsePaperSearchResults(text, options = {}) {
 
 function normalizeSearchPayload(query, mode, payload, options = {}) {
   if (mode === 'all' || mode === 'both') {
+    // Use a Map keyed on the raw value so identical strings (e.g. the shared
+    // difficulty-1 result under both `semantic` and `keyword`) are only parsed
+    // once rather than once per key.
+    const parseCache = new Map();
     const normalized = {};
     for (const [key, value] of Object.entries(payload)) {
-      normalized[key] = parsePaperSearchResults(value, options);
+      if (!parseCache.has(value)) {
+        parseCache.set(value, parsePaperSearchResults(value, options));
+      }
+      normalized[key] = parseCache.get(value);
     }
     return {
       query,
@@ -123,11 +191,10 @@ export async function searchPapers(query, mode = 'semantic', options = {}) {
   if (mode === 'keyword') return normalizeSearchPayload(query, mode, await searchByKeyword(query), options);
   if (mode === 'agentic') return normalizeSearchPayload(query, mode, await agenticSearch(query), options);
   if (mode === 'both') {
-    const [semantic, keyword] = await Promise.all([
-      searchByEmbedding(query),
-      searchByKeyword(query),
-    ]);
-    return normalizeSearchPayload(query, mode, { semantic, keyword }, options);
+    // `discover_papers` replaces both semantic and keyword search, so we
+    // make a single request and reuse it under both keys.
+    const result = await searchByEmbedding(query);
+    return normalizeSearchPayload(query, mode, { semantic: result, keyword: result }, options);
   }
   if (mode === 'all') return normalizeSearchPayload(query, mode, await searchAll(query), options);
   return normalizeSearchPayload(query, mode, await searchByEmbedding(query), options);

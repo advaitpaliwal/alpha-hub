@@ -6,14 +6,14 @@ import { homedir } from 'node:os';
 import { execSync } from 'node:child_process';
 import { platform } from 'node:os';
 
-const CLERK_ISSUER = 'https://clerk.alphaxiv.org';
-const AUTH_ENDPOINT = `${CLERK_ISSUER}/oauth/authorize`;
-const TOKEN_ENDPOINT = `${CLERK_ISSUER}/oauth/token`;
-const REGISTER_ENDPOINT = `${CLERK_ISSUER}/oauth/register`;
+const ALPHAXIV_AUTH_ISSUER = 'https://api.alphaxiv.org/auth';
+const AUTH_ENDPOINT = `${ALPHAXIV_AUTH_ISSUER}/oauth2/authorize`;
+const TOKEN_ENDPOINT = `${ALPHAXIV_AUTH_ISSUER}/oauth2/token`;
+const REGISTER_ENDPOINT = `${ALPHAXIV_AUTH_ISSUER}/oauth2/register`;
 const CALLBACK_PORT = 9876;
 const REDIRECT_URI = `http://127.0.0.1:${CALLBACK_PORT}/callback`;
-const USERINFO_ENDPOINT = `${CLERK_ISSUER}/oauth/userinfo`;
-const SCOPES = 'profile email offline_access';
+const USERINFO_ENDPOINT = `${ALPHAXIV_AUTH_ISSUER}/oauth2/userinfo`;
+const SCOPES = 'openid profile email offline_access';
 
 function getAuthPath() {
   const dir = join(homedir(), '.ahub');
@@ -133,7 +133,7 @@ function startCallbackServer() {
   });
 }
 
-function waitForCallback(server) {
+function waitForCallback(server, expectedState) {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
       server.close();
@@ -151,6 +151,16 @@ function waitForCallback(server) {
 
       const code = url.searchParams.get('code');
       const error = url.searchParams.get('error');
+      const returnedState = url.searchParams.get('state');
+
+      if (!returnedState || returnedState !== expectedState) {
+        res.writeHead(400, { 'Content-Type': 'text/html' });
+        res.end(ERROR_HTML);
+        clearTimeout(timeout);
+        server.close();
+        reject(new Error('OAuth state mismatch'));
+        return;
+      }
 
       if (error) {
         res.writeHead(200, { 'Content-Type': 'text/html' });
@@ -247,7 +257,7 @@ export async function login() {
   process.stderr.write(`If browser didn't open, visit:\n${authUrl.toString()}\n\n`);
   process.stderr.write('Waiting for login...\n');
 
-  const code = await waitForCallback(server);
+  const code = await waitForCallback(server, state);
 
   const tokens = await exchangeCode(code, clientId, verifier);
 

@@ -3,17 +3,28 @@
 Research agents hallucinate paper details and forget what they learn in a session. Alpha Hub gives them semantic paper search, AI-generated reports, and persistent annotations — so they get smarter with every task. Search and content powered by [alphaXiv](https://alphaxiv.org).
 
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Node.js](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](https://nodejs.org)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D22.22.0-brightgreen)](https://nodejs.org)
 
 ## Quick Start
 
+Requires Node.js **22.22.0 or newer**.
+
 ```bash
-npm install -g @companion-ai/alpha-hub
+npm install -g @advaitpaliwal/alpha-hub
 alpha login                        # sign in with alphaXiv
 alpha status                       # show whether alphaXiv auth is present
 alpha search "attention mechanism" # search papers
 alpha get 1706.03762               # fetch paper report
 ```
+
+If you installed the old scoped package, migrate once:
+
+```bash
+npm uninstall -g @companion-ai/alpha-hub
+npm install -g @advaitpaliwal/alpha-hub
+```
+
+The commands remain `alpha` and `alpha-mcp`. Library consumers should update their dependency and import scope to `@advaitpaliwal/alpha-hub`; export paths such as `/lib` and `/lib/auth` are unchanged.
 
 ## How It Works
 
