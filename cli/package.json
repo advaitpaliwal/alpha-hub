@@ -37,7 +37,7 @@
     "src/"
   ],
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.22.0"
   },
   "keywords": [
     "research",
@@ -49,18 +49,18 @@
   ],
   "license": "MIT",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.27.1",
-    "chalk": "^5.3.0",
-    "commander": "^12.0.0",
-    "zod": "^3.23.0"
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "chalk": "^6.0.0",
+    "commander": "^15.0.0",
+    "zod": "^4.5.4"
   },
   "overrides": {
-    "@hono/node-server": "1.19.15",
-    "hono": "4.13.3",
+    "@hono/node-server": "2.1.1",
+    "hono": "4.13.7",
     "body-parser": "2.3.0",
-    "express-rate-limit": "8.5.1",
-    "fast-uri": "3.1.6",
-    "ip-address": "10.5.0",
+    "express-rate-limit": "8.7.0",
+    "fast-uri": "3.1.7",
+    "ip-address": "10.7.0",
     "path-to-regexp": "8.4.2",
     "qs": "6.16.0"
   }

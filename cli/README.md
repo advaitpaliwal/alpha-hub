@@ -4,6 +4,8 @@ Unofficial alphaXiv-powered CLI and library for research agents.
 
 ## Install
 
+Requires Node.js **22.22.0 or newer**. Version 0.1.4 uses MCP SDK 1.30, Chalk 6, Commander 15, and Zod 4.
+
 ```bash
 npm install -g @advaitpaliwal/alpha-hub
 ```
