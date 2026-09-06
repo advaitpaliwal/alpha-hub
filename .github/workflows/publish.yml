@@ -7,27 +7,31 @@ on:
 
 jobs:
   publish:
+    if: github.repository == 'advaitpaliwal/alpha-hub' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    concurrency:
+      group: npm-publish
+      cancel-in-progress: false
     permissions:
       contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: cli
+      - run: node --experimental-vm-modules --test tests/*.test.mjs
+      - run: node ../tests/consumer-smoke.mjs
+        working-directory: cli
       - id: check
-        run: |
-          CURRENT=$(npm view @companion-ai/alpha-hub version 2>/dev/null || echo "0.0.0")
-          LOCAL=$(node -p "require('./cli/package.json').version")
-          echo "current=$CURRENT local=$LOCAL"
-          if [ "$CURRENT" != "$LOCAL" ]; then
-            echo "publish=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "publish=false" >> "$GITHUB_OUTPUT"
-          fi
+        run: node scripts/check-publish.mjs
       - if: steps.check.outputs.publish == 'true'
-        run: npm publish --access public
+        run: |
+          test -n "$NODE_AUTH_TOKEN" || { echo "NPM_TOKEN is required"; exit 1; }
+          npm publish --access public --provenance
         working-directory: cli
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
