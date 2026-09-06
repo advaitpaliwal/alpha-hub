@@ -23,6 +23,8 @@ jobs:
           registry-url: https://registry.npmjs.org
       - run: npm ci --ignore-scripts --no-audit --no-fund
         working-directory: cli
+      - run: npm audit --omit=dev --audit-level=low
+        working-directory: cli
       - run: node --experimental-vm-modules --test tests/*.test.mjs
       - run: node ../tests/consumer-smoke.mjs
         working-directory: cli

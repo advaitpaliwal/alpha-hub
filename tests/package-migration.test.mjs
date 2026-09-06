@@ -107,6 +107,8 @@ test('workflow retains existing token, main guard and provenance permission', ()
   assert.match(workflow, /id-token: write/);
   assert.match(workflow, /NODE_AUTH_TOKEN: \$\{\{ secrets\.NPM_TOKEN \}\}/);
   assert.match(workflow, /npm publish --access public --provenance/);
+  assert.match(workflow, /npm audit --omit=dev --audit-level=low/);
+  assert.ok(workflow.indexOf('npm audit --omit=dev') < workflow.indexOf('npm publish'));
   assert.match(workflow, /run: node scripts\/check-publish\.mjs/);
   assert.match(workflow, /if: steps\.check\.outputs\.publish == 'true'/);
   assert.doesNotMatch(workflow, /npm view|companion-ai/);
